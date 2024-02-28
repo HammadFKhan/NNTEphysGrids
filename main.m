@@ -66,32 +66,32 @@ plotOption = 0;
 [Behaviour] = readLever(parameters,LFP.times,plotOption);
 
 %% Reading behaviour data from Intan traces 
-plotOption = 0;
+plotOption = 1;
 IntanBehaviour = readLeverIntan(parameters,LFP.times,Intan.analog_adc_data,Intan.dig_in_data,Behaviour,plotOption);
 
 %% Generalized Phase 
 LFP.xf = bandpass_filter(LFP.LFPdatacube,5,40,4,1000);
 [LFP.xgp, LFP.wt] = generalized_phase(LFP.xf,1000,0);
-LFP.xfbeta = bandpass_filter(LFP.LFPdatacube,10,30,4,1000);
-[LFP.xgpbeta, LFP.wtbeta] = generalized_phase(LFP.xfbeta,1000,0);
-LFP.xftheta = bandpass_filter(LFP.LFPdatacube,4,10,4,1000);
-[LFP.xgptheta, LFP.wttheta]  = generalized_phase(LFP.xftheta,1000,0);
-LFP.xfgamma = bandpass_filter(LFP.LFPdatacube,30,40,4,1000);
-[LFP.xgpgamma, LFP.wtgamma]  = generalized_phase(LFP.xfgamma,1000,0);
-[parameters.X,parameters.Y] = meshgrid( 1:parameters.cols, 1:parameters.rows );
-LFP.xfwide = bandpass_filter(LFP.LFPdatacube,5,90,4,1000);
-LFP.xfbetanarrow = bandpass_filter(LFP.LFPdatacube,6,9,4,1000);
-[LFP.xgpbetanarrow, LFP.wtbetanarrow] = generalized_phase(LFP.xfbetanarrow,1000,0);
-% GP for spatial mean LFP 
-[LFP.xgpbetamean, ~] = generalized_phase(mean(LFP.xfbetanarrow,[1,2]),1000,0);
+% LFP.xfbeta = bandpass_filter(LFP.LFPdatacube,10,30,4,1000);
+% [LFP.xgpbeta, LFP.wtbeta] = generalized_phase(LFP.xfbeta,1000,0);
+% LFP.xftheta = bandpass_filter(LFP.LFPdatacube,4,10,4,1000);
+% [LFP.xgptheta, LFP.wttheta]  = generalized_phase(LFP.xftheta,1000,0);
+% LFP.xfgamma = bandpass_filter(LFP.LFPdatacube,30,40,4,1000);
+% [LFP.xgpgamma, LFP.wtgamma]  = generalized_phase(LFP.xfgamma,1000,0);
+% [parameters.X,parameters.Y] = meshgrid( 1:parameters.cols, 1:parameters.rows );
+% LFP.xfwide = bandpass_filter(LFP.LFPdatacube,5,90,4,1000);
+% LFP.xfbetanarrow = bandpass_filter(LFP.LFPdatacube,6,9,4,1000);
+% [LFP.xgpbetanarrow, LFP.wtbetanarrow] = generalized_phase(LFP.xfbetanarrow,1000,0);
+% % GP for spatial mean LFP 
+% [LFP.xgpbetamean, ~] = generalized_phase(mean(LFP.xfbetanarrow,[1,2]),1000,0);
 
-%% Add trial segmented data to IntanBehaviour Variable
+% Add trial segmented data to IntanBehaviour Variable
 IntanBehaviour = addLFPToBehaviour(IntanBehaviour,LFP,parameters);
-% Saving paramters, path, IntanBehaviour to bin file 
+%% Saving paramters, path, IntanBehaviour to bin file 
 savepath = uigetdir(path);
-sessionName = [savepath,'/','M2WavesComb.mat'];
+sessionName = [savepath,'/','M1WavesCooling.mat'];
 % save(sessionName,"IntanBehaviour","fpath","parameters","-v7.3");
-save(sessionName,"IntanBehaviour","fpath","parameters","Waves","-v7.3"); %,"betaWaves","thetaWaves","gammaWaves",
+save(sessionName,"IntanBehaviour","fpath","parameters","-v7.3"); %,"betaWaves","thetaWaves","gammaWaves",
 
 %% Combining  multiple Intanbehaviour structs from multiple sessions
 combIntanBehaviour = horzcat(IntanBehaviour1, IntanBehaviour2);
@@ -285,14 +285,15 @@ xline(0.5,'--r','Threshold Time','LabelVerticalAlignment','top');
 ylabel('Lever deflection (mV)'); ylim([0 0.1]); box off;
 
 %% Wave detection in velocity triggered windows
-nShuffle = 1000;
-threshold = 99;
-trialno = 67;
-
+% nShuffle = 1000;
+% threshold = 95;
+% trialno = 67;
+nShuffle = 100;
+threshold = 99; % zscore of 3
+parameters.rhoThres = getRhoThreshold2(IntanBehaviour.cueHitTrace,IntanBehaviour.cueMissTrace,parameters,nShuffle,threshold);
 % Wave detection for wide band
 disp('Wave Detection for wide band ...')
 xgp = arrayfun(@(s) s.xgp, IntanBehaviour.hitTrace, 'UniformOutput', false);
-parameters.rhoThres = getRhoThreshold(xgp,IntanBehaviour.hitTrace,parameters,nShuffle,trialno,threshold);
 if isfield(IntanBehaviour,'cueHitTrace')
     xf = arrayfun(@(s) s.xf, IntanBehaviour.cueHitTrace, 'UniformOutput', false);
     xgp = arrayfun(@(s) s.xgp, IntanBehaviour.cueHitTrace, 'UniformOutput', false);
@@ -332,7 +333,7 @@ if isfield(IntanBehaviour,'hitTrace')
     Waves.wavesHitReward = detectWaves(xf,xgp,wt,IntanBehaviour.hitTrace,parameters,parameters.rhoThres);
 end
 
-% Wave detection for theta band
+%% Wave detection for theta band
 disp('Wave Detection for theta band ...')
 threshold = 99;
 xf = arrayfun(@(s) s.xftheta, IntanBehaviour.cueHitTrace, 'UniformOutput', false);
@@ -477,7 +478,7 @@ title('Trial Averaged Phase Gradient  Directionality (PGD)');box off;  legend('H
 %% Cross-Trial Phase Alignment
 z_score = 0;
 nIterrate = 2000;
-PA = getPA(IntanBehaviour,z_score,nIterrate,1,parameters);
+PA = getPA(IntanBehaviour,z_score,nIterrate,1,parameters,0);
 
 %% Percent Phase Locking
 xgp = arrayfun(@(s) s.xgp, IntanBehaviour.cueHitTrace, 'UniformOutput', false);
